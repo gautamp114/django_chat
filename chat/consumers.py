@@ -78,14 +78,12 @@ class ChatConsumer(WebsocketConsumer):
 
     # Receive message from WebSocket
     def receive(self, text_data):
-        print("hello",text_data)
         data = json.loads(text_data)
         self.commands[data['command']](self,data) ## get the command according to frontend
 
 
 
     def send_chat_message(self, message):
-        # message = data['message']
         # Send message to room group
         ## broadcast the message
         async_to_sync( self.channel_layer.group_send)(

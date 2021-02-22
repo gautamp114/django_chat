@@ -1,16 +1,21 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
 
-from chat.models import Message
+from chat.models import Message, Contact, Chat
 
 from asgiref.sync import async_to_sync
 
 from django.contrib.auth.models import User
 
+from itertools import chain
+
+from chat.views import last_10_messages, get_msg_contact, get_chat
+
 class ChatConsumer(WebsocketConsumer):
 
     def fetch_messages(self, data):
-        messages = Message.objects.order_by('-timestamp')[:20]
+        print("fetched_data",data)
+        messages = last_10_messages(data['chatId'])
         
         content = {
             'command': 'messages',
@@ -28,19 +33,24 @@ class ChatConsumer(WebsocketConsumer):
 
     def message_to_json(self, message):
         return {
-            'author': message.author.username,
+            'author': message.contact.user.username,
             'content': message.content,
-            'timestamp': str(message.timestamp)
+            'timestamp': str(message.timestamp),
         }
 
 
     def new_message(self, data):
+        # print(data)
         author = data['from']
-        author_user = User.objects.get(username = author)
+        author_user = get_msg_contact(author)
         message = Message.objects.create(
-            author=author_user,
-            content=data['message']
+            contact=author_user,
+            content=data['message'],
         )
+
+        chat_me = get_chat(data['chatId'])
+        chat_me.messages.add(message)
+        chat_me.save()
 
         content = {
             'command': 'new_message',
@@ -78,6 +88,7 @@ class ChatConsumer(WebsocketConsumer):
 
     # Receive message from WebSocket
     def receive(self, text_data):
+        # print(text_data)
         data = json.loads(text_data)
         self.commands[data['command']](self,data) ## get the command according to frontend
 
@@ -95,11 +106,12 @@ class ChatConsumer(WebsocketConsumer):
         )
 
     def send_message(self, message):
-        # print("send message", message);
+        print("send message", message);
         self.send(text_data=json.dumps(message))
 
     # Receive message from room group
     def chat_message(self, event):
+        # print('chat_message', event['message'])
         message = event['message']
 
         # print('message ho yo',message)

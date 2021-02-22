@@ -24,28 +24,22 @@
 
     <!-- total contacts displayed -->
     <div id="contacts">
+      
       <ul>
-        <li class="contact">
+        {% for user in users %}
+        <li class="contact" id="contact" user-id="{{ user.id }}">
           <div class="wrap">
             <span class="contact-status online"></span>
             <img src="http://emilcarlsson.se/assets/louislitt.png" alt="" />
             <div class="meta">
-              <p class="name">Louis Litt</p>
-              <p class="preview">You just got LITT up, Mike.</p>
+              <p class="name" id="{{ user.id }}">{{ user.username }}</p>
+              <p class="preview">hello</p>
             </div>
           </div>
         </li>
-        <li class="contact active">
-          <div class="wrap">
-            <span class="contact-status busy"></span>
-            <img src="http://emilcarlsson.se/assets/harveyspecter.png" alt="" />
-            <div class="meta">
-              <p class="name">Harvey Specter</p>
-              <p class="preview">Wrong. You take the gun, or you pull out a bigger one. Or, you call their bluff. Or, you do any one of a hundred and forty six other things.</p>
-            </div>
-          </div>
-        </li>
+        {% endfor %}
       </ul>
+
     </div>
 
 
@@ -63,15 +57,14 @@
     </div>
 
      <!-- message display -->
-    <div class="messages">
-      <ul id="chat-log">
-        <li class="sent">
-        </li>
-        <li class="replies">
-        </li>
-      </ul>
-    </div>
-
+      <div class="messages">
+        <ul id="chat-log">
+          <li class="sent">
+          </li>
+          <li class="replies">
+          </li>
+        </ul>
+      </div>
 
     <div class="message-input">
       <div class="wrap">
@@ -83,11 +76,15 @@
   </div>
 </div>
 {{ room_name|json_script:"room-name" }}
+ {% csrf_token %}
 
    <script>
 
+        var chatId = "";
 
         var username = '{{ username }}'
+
+        var users_length = '{{ users_length }}'
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
 
         const chatSocket = new ReconnectingWebSocket(
@@ -101,11 +98,14 @@
         chatSocket.onmessage = function(e) {
             var data = JSON.parse(e.data);
             const data2 = (Object.values(data));
+
             
             if(data['command'] == "messages"){
                 for(const value of data2[1]){
+
                   fetchMessage(value);
                 }
+
             }else if (data['command'] == "new_message"){
               createMessage(data2[1]);
             }
@@ -115,27 +115,26 @@
           var author = data.author;
           var content = data.content;
 
+
           var pTag = document.createElement('p');
           pTag.innerText = content;
 
           
           var msgListTag = document.createElement('li');
           
-
           if(author == username){
-            msgListTag.className = 'sent';
+            msgListTag.className = 'replies';
             msgListTag.appendChild(pTag);
             document.getElementById('chat-log').appendChild(msgListTag);
 
           } else{
-            msgListTag.className = 'replies';
+            msgListTag.className = 'sent';
             msgListTag.appendChild(pTag);
             document.getElementById('chat-log').appendChild(msgListTag);
           }
         }
 
         function createMessage(data){
-          // console.log("createMessage");
           var author = data.author;
           var content = data.content;
 
@@ -144,33 +143,47 @@
 
           
           var msgListTag = document.createElement('li');
-          
 
           if(author == username){
-            msgListTag.className = 'sent';
+            msgListTag.className = 'replies';
             msgListTag.appendChild(pTag);
             document.getElementById('chat-log').appendChild(msgListTag);
 
           } else{
-            msgListTag.className = 'replies';
+            msgListTag.className = 'sent';
             msgListTag.appendChild(pTag);
             document.getElementById('chat-log').appendChild(msgListTag);
           }
-
-          // console.log(data);
         }
 
         chatSocket.onclose = function(e) {
             console.error('Chat socket closed unexpectedly');
         };
 
-        chatSocket.onopen = function(e){
-            fetch_messages();
-        }
 
-        function fetch_messages(){
-            chatSocket.send(JSON.stringify({'command':'fetch_messages'}));
-        }
+       chatSocket.onopen = function(e){
+        $('.contact').click(function() {
+          var user_id = $(this).attr("user-id");
+
+          $.ajax({
+            type: 'POST',
+            url: "{% url 'ajaxify' %}",
+            data: {
+              id: user_id,
+              csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(event){
+              fetch_messages(event.chatId);
+              chatId = event.chatId;
+            }
+          });
+          $("#chat-log").empty();
+        })
+            
+      }
+        function fetch_messages(chatId){
+          chatSocket.send(JSON.stringify({'command':'fetch_messages', 'chatId': chatId}));
+        };
 
         document.getElementById("chat-message-input").addEventListener("keypress", function(e){
             if (e.code === 'Enter') {  // enter, return
@@ -182,15 +195,17 @@
         document.getElementById('chat-message-submit').onclick = function(e) {
             const messageInputDom = document.getElementById('chat-message-input');
             const message = messageInputDom.value;
-            console.log("message", message);
+            console.log('chatId', chatId)
                 chatSocket.send(JSON.stringify({
                     'command': 'new_message',
                     'message': message,
-                    'from': username
-                })
-            );
-            document.getElementById('chat-message-input').value='';
-        };
+                    'from': username,
+                    'chatId': chatId
+                }));
+                document.getElementById('chat-message-input').value='';
+              }
+            
+        
     </script>
 
 {% endblock %}

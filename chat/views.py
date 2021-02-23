@@ -41,6 +41,10 @@ def last_10_messages(chatId):
 	chat = get_object_or_404(Chat, id=chatId)
 	return chat.messages.all().order_by('-timestamp')[:10][::-1]
 
+def get_one_msg(request):
+	chat = get_object_or_404(Chat, id=chatId)
+	return chat.messages.all().order_by('-timestamp')[:1]
+	
 
 def get_msg_contact(username):
 	author = User.objects.get(username= username)
@@ -59,6 +63,8 @@ def ajaxify(request):
 		user2 = User.objects.get(id=param)
 		contact_user1 = Contact.objects.get(user=user1)
 		contact_user2 = Contact.objects.get(user=user2)
+		print("user", contact_user2.user.username)
+		print(type(user2))
 
 		chatId = Chat.objects.filter(participants=contact_user1).filter(participants=contact_user2).first()
 
@@ -71,6 +77,7 @@ def ajaxify(request):
 			chatId = Chat.objects.filter(participants=contact_user1).filter(participants=contact_user2).first()
 			
 		context = {
-			'chatId': chatId.id
+			'chatId': chatId.id,
+			'contact_user2': contact_user2.user.username
 		}
 		return JsonResponse(context)

@@ -23,7 +23,6 @@ class Message(models.Model):
 		return self.contact.user.username
 
 
-
 class Chat(models.Model):
 	participants = models.ManyToManyField(Contact,related_name='chats')
 	messages = models.ManyToManyField(Message, blank=True)
@@ -31,4 +30,3 @@ class Chat(models.Model):
 
 	def __str__(self):
 		return "{}".format(self.pk)
-		
